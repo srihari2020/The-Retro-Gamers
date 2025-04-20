@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Shooter - The Retro Gamers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background: #1a202c;
+            color: white;
+        }
+
+        #gameCanvas {
+            border: 2px solid #9333ea;
+            background: #2d3748;
+        }
+
+        .game-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .score-container {
+            background: #2d3748;
+            border: 2px solid #9333ea;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .ship {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: #9333ea;
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+        }
+
+        .bullet {
+            position: absolute;
+            width: 4px;
+            height: 10px;
+            background: #f87171;
+        }
+
+        .enemy {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: #00f0f0;
+            clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div class="game-container">
+        <h1 class="text-2xl text-center mb-4 text-[#9333ea]">Space Shooter</h1>
+        <div class="score-container flex justify-between">
+            <div>Score: <span id="score">0</span></div>
+            <div>High Score: <span id="highScore">0</span></div>
+            <div>Lives: <span id="lives">3</span></div>
+        </div>
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div class="mt-4 text-center">
+            <button id="startButton" class="bg-[#9333ea] hover:bg-[#7e22ce] px-4 py-2 rounded">
+                Start Game
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('highScore');
+        const livesElement = document.getElementById('lives');
+        const startButton = document.getElementById('startButton');
+
+        const shipWidth = 30;
+        const shipHeight = 30;
+        const bulletWidth = 4;
+        const bulletHeight = 10;
+        const enemyWidth = 30;
+        const enemyHeight = 30;
+
+        let ship = {
+            x: canvas.width / 2 - shipWidth / 2,
+            y: canvas.height - shipHeight - 10,
+            width: shipWidth,
+            height: shipHeight,
+            speed: 5
+        };
+
+        let bullets = [];
+        let enemies = [];
+        let score = 0;
+        let highScore = localStorage.getItem('spaceShooterHighScore') || 0;
+        let lives = 3;
+        let gameLoop;
+        let enemySpawnInterval;
+        let gameRunning = false;
+
+        highScoreElement.textContent = highScore;
+
+        function drawShip() {
+            ctx.fillStyle = '#9333ea';
+            ctx.beginPath();
+            ctx.moveTo(ship.x + ship.width / 2, ship.y);
+            ctx.lineTo(ship.x, ship.y + ship.height);
+            ctx.lineTo(ship.x + ship.width, ship.y + ship.height);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawBullets() {
+            ctx.fillStyle = '#f87171';
+            bullets.forEach(bullet => {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+        }
+
+        function drawEnemies() {
+            ctx.fillStyle = '#00f0f0';
+            enemies.forEach(enemy => {
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            });
+        }
+
+        function moveShip(direction) {
+            if (direction === 'left' && ship.x > 0) {
+                ship.x -= ship.speed;
+            } else if (direction === 'right' && ship.x < canvas.width - ship.width) {
+                ship.x += ship.speed;
+            }
+        }
+
+        function shoot() {
+            bullets.push({
+                x: ship.x + ship.width / 2 - bulletWidth / 2,
+                y: ship.y,
+                width: bulletWidth,
+                height: bulletHeight,
+                speed: 7
+            });
+        }
+
+        function spawnEnemy() {
+            enemies.push({
+                x: Math.random() * (canvas.width - enemyWidth),
+                y: -enemyHeight,
+                width: enemyWidth,
+                height: enemyHeight,
+                speed: 2
+            });
+        }
+
+        function update() {
+            // Move bullets
+            bullets = bullets.filter(bullet => {
+                bullet.y -= bullet.speed;
+                return bullet.y > -bulletHeight;
+            });
+
+            // Move enemies
+            enemies = enemies.filter(enemy => {
+                enemy.y += enemy.speed;
+                return enemy.y < canvas.height;
+            });
+
+            // Check collisions
+            bullets.forEach((bullet, bulletIndex) => {
+                enemies.forEach((enemy, enemyIndex) => {
+                    if (
+                        bullet.x < enemy.x + enemy.width &&
+                        bullet.x + bullet.width > enemy.x &&
+                        bullet.y < enemy.y + enemy.height &&
+                        bullet.y + bullet.height > enemy.y
+                    ) {
+                        bullets.splice(bulletIndex, 1);
+                        enemies.splice(enemyIndex, 1);
+                        score += 10;
+                        scoreElement.textContent = score;
+                        if (score > highScore) {
+                            highScore = score;
+                            highScoreElement.textContent = highScore;
+                            localStorage.setItem('spaceShooterHighScore', highScore);
+                        }
+                    }
+                });
+            });
+
+            // Check if enemies hit the ship
+            enemies.forEach(enemy => {
+                if (
+                    enemy.y + enemy.height > ship.y &&
+                    enemy.x < ship.x + ship.width &&
+                    enemy.x + enemy.width > ship.x
+                ) {
+                    lives--;
+                    livesElement.textContent = lives;
+                    if (lives <= 0) {
+                        endGame();
+                    }
+                }
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawShip();
+            drawBullets();
+            drawEnemies();
+        }
+
+        function gameStep() {
+            update();
+            draw();
+        }
+
+        function startGame() {
+            if (gameRunning) return;
+            
+            gameRunning = true;
+            score = 0;
+            lives = 3;
+            bullets = [];
+            enemies = [];
+            scoreElement.textContent = score;
+            livesElement.textContent = lives;
+            
+            clearInterval(gameLoop);
+            clearInterval(enemySpawnInterval);
+            
+            gameLoop = setInterval(gameStep, 1000 / 60);
+            enemySpawnInterval = setInterval(spawnEnemy, 2000);
+            
+            startButton.textContent = 'Restart';
+        }
+
+        function endGame() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            clearInterval(enemySpawnInterval);
+            alert(`Game Over! Score: ${score}`);
+            startButton.textContent = 'Play Again';
+        }
+
+        startButton.addEventListener('click', startGame);
+
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            
+            switch (e.key) {
+                case 'ArrowLeft':
+                    moveShip('left');
+                    break;
+                case 'ArrowRight':
+                    moveShip('right');
+                    break;
+                case ' ':
+                    shoot();
+                    break;
+            }
+        });
+
+        // Touch controls for mobile
+        let touchStartX = 0;
+
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touchEndX = e.touches[0].clientX;
+            const diffX = touchEndX - touchStartX;
+            
+            if (diffX > 0) moveShip('right');
+            else if (diffX < 0) moveShip('left');
+            
+            touchStartX = touchEndX;
+        });
+
+        canvas.addEventListener('touchend', () => {
+            if (gameRunning) shoot();
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris - The Retro Gamers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background: #1a202c;
+            color: white;
+        }
+
+        #gameCanvas {
+            border: 2px solid #9333ea;
+            background: #2d3748;
+        }
+
+        .game-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .score-container {
+            background: #2d3748;
+            border: 2px solid #9333ea;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .tetromino {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div class="game-container">
+        <h1 class="text-2xl text-center mb-4 text-[#9333ea]">Tetris</h1>
+        <div class="score-container flex justify-between">
+            <div>Score: <span id="score">0</span></div>
+            <div>High Score: <span id="highScore">0</span></div>
+            <div>Level: <span id="level">1</span></div>
+        </div>
+        <canvas id="gameCanvas" width="300" height="600"></canvas>
+        <div class="mt-4 text-center">
+            <button id="startButton" class="bg-[#9333ea] hover:bg-[#7e22ce] px-4 py-2 rounded">
+                Start Game
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('highScore');
+        const levelElement = document.getElementById('level');
+        const startButton = document.getElementById('startButton');
+
+        const blockSize = 30;
+        const rows = 20;
+        const cols = 10;
+        let score = 0;
+        let level = 1;
+        let highScore = localStorage.getItem('tetrisHighScore') || 0;
+        let gameLoop;
+        let gameSpeed = 1000;
+        let board = Array(rows).fill().map(() => Array(cols).fill(0));
+        let currentPiece = null;
+        let gameOver = false;
+
+        highScoreElement.textContent = highScore;
+
+        const pieces = [
+            { shape: [[1, 1, 1, 1]], color: '#00f0f0' }, // I
+            { shape: [[1, 1], [1, 1]], color: '#f0f000' }, // O
+            { shape: [[1, 1, 1], [0, 1, 0]], color: '#a000f0' }, // T
+            { shape: [[1, 1, 1], [1, 0, 0]], color: '#f0a000' }, // L
+            { shape: [[1, 1, 1], [0, 0, 1]], color: '#0000f0' }, // J
+            { shape: [[1, 1, 0], [0, 1, 1]], color: '#00f000' }, // S
+            { shape: [[0, 1, 1], [1, 1, 0]], color: '#f00000' }  // Z
+        ];
+
+        function createPiece() {
+            const piece = pieces[Math.floor(Math.random() * pieces.length)];
+            return {
+                shape: piece.shape,
+                color: piece.color,
+                x: Math.floor(cols / 2) - Math.floor(piece.shape[0].length / 2),
+                y: 0
+            };
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw board
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    if (board[y][x]) {
+                        ctx.fillStyle = board[y][x];
+                        ctx.fillRect(x * blockSize, y * blockSize, blockSize - 1, blockSize - 1);
+                    }
+                }
+            }
+
+            // Draw current piece
+            if (currentPiece) {
+                ctx.fillStyle = currentPiece.color;
+                currentPiece.shape.forEach((row, y) => {
+                    row.forEach((value, x) => {
+                        if (value) {
+                            ctx.fillRect(
+                                (currentPiece.x + x) * blockSize,
+                                (currentPiece.y + y) * blockSize,
+                                blockSize - 1,
+                                blockSize - 1
+                            );
+                        }
+                    });
+                });
+            }
+        }
+
+        function moveDown() {
+            if (!currentPiece) return;
+            
+            currentPiece.y++;
+            if (checkCollision()) {
+                currentPiece.y--;
+                mergePiece();
+                clearLines();
+                currentPiece = createPiece();
+                if (checkCollision()) {
+                    gameOver = true;
+                    clearInterval(gameLoop);
+                    alert(`Game Over! Score: ${score}`);
+                    startButton.textContent = 'Play Again';
+                    startButton.disabled = false;
+                }
+            }
+        }
+
+        function moveLeft() {
+            if (!currentPiece) return;
+            
+            currentPiece.x--;
+            if (checkCollision()) {
+                currentPiece.x++;
+            }
+        }
+
+        function moveRight() {
+            if (!currentPiece) return;
+            
+            currentPiece.x++;
+            if (checkCollision()) {
+                currentPiece.x--;
+            }
+        }
+
+        function rotate() {
+            if (!currentPiece) return;
+            
+            const originalShape = currentPiece.shape;
+            currentPiece.shape = currentPiece.shape[0].map((_, i) =>
+                currentPiece.shape.map(row => row[i]).reverse()
+            );
+            
+            if (checkCollision()) {
+                currentPiece.shape = originalShape;
+            }
+        }
+
+        function checkCollision() {
+            if (!currentPiece) return false;
+            
+            return currentPiece.shape.some((row, y) => {
+                return row.some((value, x) => {
+                    if (!value) return false;
+                    
+                    const newX = currentPiece.x + x;
+                    const newY = currentPiece.y + y;
+                    
+                    return (
+                        newX < 0 ||
+                        newX >= cols ||
+                        newY >= rows ||
+                        (newY >= 0 && board[newY][newX])
+                    );
+                });
+            });
+        }
+
+        function mergePiece() {
+            currentPiece.shape.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        const newY = currentPiece.y + y;
+                        if (newY >= 0) {
+                            board[newY][currentPiece.x + x] = currentPiece.color;
+                        }
+                    }
+                });
+            });
+        }
+
+        function clearLines() {
+            let linesCleared = 0;
+            
+            for (let y = rows - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell)) {
+                    board.splice(y, 1);
+                    board.unshift(Array(cols).fill(0));
+                    linesCleared++;
+                    y++;
+                }
+            }
+            
+            if (linesCleared > 0) {
+                score += linesCleared * 100 * level;
+                scoreElement.textContent = score;
+                
+                if (score > highScore) {
+                    highScore = score;
+                    highScoreElement.textContent = highScore;
+                    localStorage.setItem('tetrisHighScore', highScore);
+                }
+                
+                // Level up every 1000 points
+                const newLevel = Math.floor(score / 1000) + 1;
+                if (newLevel > level) {
+                    level = newLevel;
+                    levelElement.textContent = level;
+                    gameSpeed = Math.max(100, 1000 - (level - 1) * 100);
+                    clearInterval(gameLoop);
+                    gameLoop = setInterval(gameStep, gameSpeed);
+                }
+            }
+        }
+
+        function gameStep() {
+            moveDown();
+            draw();
+        }
+
+        function startGame() {
+            board = Array(rows).fill().map(() => Array(cols).fill(0));
+            score = 0;
+            level = 1;
+            gameSpeed = 1000;
+            scoreElement.textContent = score;
+            levelElement.textContent = level;
+            currentPiece = createPiece();
+            gameOver = false;
+            
+            clearInterval(gameLoop);
+            gameLoop = setInterval(gameStep, gameSpeed);
+            startButton.textContent = 'Restart';
+        }
+
+        startButton.addEventListener('click', startGame);
+
+        document.addEventListener('keydown', (e) => {
+            if (gameOver) return;
+            
+            switch (e.key) {
+                case 'ArrowLeft':
+                    moveLeft();
+                    break;
+                case 'ArrowRight':
+                    moveRight();
+                    break;
+                case 'ArrowDown':
+                    moveDown();
+                    break;
+                case 'ArrowUp':
+                    rotate();
+                    break;
+                case ' ':
+                    while (!checkCollision()) {
+                        currentPiece.y++;
+                    }
+                    currentPiece.y--;
+                    moveDown();
+                    break;
+            }
+            draw();
+        });
+
+        // Touch controls for mobile
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touchEndX = e.touches[0].clientX;
+            const touchEndY = e.touches[0].clientY;
+            
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+            
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                if (diffX > 0) moveRight();
+                else moveLeft();
+            } else {
+                if (diffY > 0) moveDown();
+                else rotate();
+            }
+            
+            touchStartX = touchEndX;
+            touchStartY = touchEndY;
+            draw();
+        });
+    </script>
+</body>
+</html> 
