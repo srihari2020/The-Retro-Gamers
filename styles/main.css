@@ -1,0 +1,144 @@
+/* Custom Font */
+.font-press-start {
+    font-family: 'Press Start 2P', cursive;
+}
+
+/* Custom Animations */
+@keyframes pixel-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.pixel-bounce {
+    animation: pixel-bounce 2s infinite;
+}
+
+/* Game Card Hover Effects */
+.game-card {
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.game-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, rgba(147, 51, 234, 0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.game-card:hover::before {
+    opacity: 1;
+}
+
+/* Retro Button Style */
+.retro-button {
+    position: relative;
+    background: #6b46c1;
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    font-family: 'Press Start 2P', cursive;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    overflow: hidden;
+}
+
+.retro-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 2px;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.retro-button:hover::before {
+    left: 0;
+}
+
+/* Loading Animation */
+.loading-dots {
+    display: inline-block;
+    position: relative;
+    width: 80px;
+    height: 80px;
+}
+
+.loading-dots div {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #6b46c1;
+    border-radius: 50%;
+    animation: loading-dots 1.2s linear infinite;
+}
+
+.loading-dots div:nth-child(1) {
+    animation-delay: 0s;
+    top: 8px;
+    left: 8px;
+}
+
+.loading-dots div:nth-child(2) {
+    animation-delay: -0.4s;
+    top: 8px;
+    left: 32px;
+}
+
+.loading-dots div:nth-child(3) {
+    animation-delay: -0.8s;
+    top: 8px;
+    left: 56px;
+}
+
+@keyframes loading-dots {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(0.5);
+        opacity: 0.5;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #6b46c1;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #7c3aed;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .game-grid {
+        grid-template-columns: repeat(1, 1fr);
+    }
+    
+    .nav-links {
+        display: none;
+    }
+    
+    .mobile-menu {
+        display: block;
+    }
+} 
